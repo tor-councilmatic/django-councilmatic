@@ -31,7 +31,7 @@ for configuration in ['OCD_JURISDICTION_ID',
         raise ImproperlyConfigured('You must define {0} in settings.py'.format(configuration))
 
 app_timezone = pytz.timezone(settings.TIME_ZONE)
-base_url = 'http://ocd.datamade.us'
+default_base_url = 'http://ocd.datamade.us'
 
 DEBUG = settings.DEBUG
 
@@ -39,6 +39,7 @@ DEBUG = settings.DEBUG
 class Command(BaseCommand):
     help = 'loads in data from the open civic data API'
     update_since = None
+    base_url = default_base_url
 
     def add_arguments(self, parser):
         parser.add_argument('--endpoint', help="a specific endpoint to load data from")
@@ -50,6 +51,9 @@ class Command(BaseCommand):
         
         parser.add_argument('--update_since',
             help='Only update objects in the database that have changed since this date')
+
+        parser.add_argument('--custom_base_url',
+            help='Load data from a custom OCDAPI base url. (Default: http://ocd.datamade.us)')
         
     def handle(self, *args, **options):
         
@@ -64,6 +68,9 @@ class Command(BaseCommand):
 
         if options['update_since']:
             self.update_since = date_parser.parse(options['update_since'])
+
+        if options['custom_base_url']:
+            self.base_url = options['custom_base_url']
 
         if options['endpoint'] == 'organizations':
             self.grab_organizations(delete=options['delete'])
@@ -105,7 +112,7 @@ class Command(BaseCommand):
         self.grab_organization_posts(settings.OCD_CITY_COUNCIL_ID)
 
         # this grabs a paginated listing of all organizations within a jurisdiction
-        orgs_url = base_url+'/organizations/?jurisdiction_id='+settings.OCD_JURISDICTION_ID
+        orgs_url = self.base_url+'/organizations/?jurisdiction_id='+settings.OCD_JURISDICTION_ID
         r = requests.get(orgs_url)
         page_json = json.loads(r.text)
 
@@ -126,7 +133,7 @@ class Command(BaseCommand):
 
     def grab_organization_posts(self, organization_ocd_id, parent=None):
 
-        url = base_url+'/'+organization_ocd_id
+        url = self.base_url+'/'+organization_ocd_id
         r = requests.get(url)
         page_json = json.loads(r.text)
 
@@ -207,14 +214,14 @@ class Command(BaseCommand):
         print("\n\npopulating boundaries: %s" %settings.BOUNDARY_SET)
 
         # grab boundary listing
-        bndry_set_url = base_url+'/boundaries/'+settings.BOUNDARY_SET
+        bndry_set_url = self.base_url+'/boundaries/'+settings.BOUNDARY_SET
         r = requests.get(bndry_set_url+'/?limit=0')
         page_json = json.loads(r.text)
 
         # loop through boundary listing
         for bndry_json in page_json['objects']:
             # grab boundary shape
-            shape_url = base_url+bndry_json['url']+'shape'
+            shape_url = self.base_url+bndry_json['url']+'shape'
             r = requests.get(shape_url)
             # update the right post(s) with the shape
             Post.objects.filter(division_ocd_id=bndry_json['external_id']).update(shape=r.text)
@@ -233,7 +240,7 @@ class Command(BaseCommand):
         # grab people associated with all existing organizations
         orgs = Organization.objects.exclude(name='Democratic').exclude(name='Republican').all()
         for organization in orgs:
-            url = base_url+'/'+organization.ocd_id
+            url = self.base_url+'/'+organization.ocd_id
             r = requests.get(url)
             page_json = json.loads(r.text)
 
@@ -279,7 +286,7 @@ class Command(BaseCommand):
         
         print('grabbing bills since', query_params['updated_at__gte'])
 
-        search_url = '{}/bills/'.format(base_url)
+        search_url = '{}/bills/'.format(self.base_url)
         search_results = requests.get(search_url, params=query_params)
         page_json = search_results.json()
         
@@ -292,7 +299,7 @@ class Command(BaseCommand):
 
             for result in result_page.json()['results']:
                 
-                bill_url = '{base}/{bill_id}'.format(base=base_url, bill_id=result['id'])
+                bill_url = '{base}/{bill_id}'.format(base=self.base_url, bill_id=result['id'])
                 bill_detail = requests.get(bill_url)
                 
                 leg_session_id = bill_detail.json()['legislative_session']['identifier']
@@ -584,7 +591,7 @@ class Command(BaseCommand):
     def grab_person_memberships(self, person_id):
         # this grabs a person and all their memberships
 
-        url = base_url+'/'+person_id
+        url = self.base_url+'/'+person_id
         r = requests.get(url)
         page_json = json.loads(r.text)
 
@@ -692,7 +699,7 @@ class Command(BaseCommand):
             print("deleted all events, participants, documents, agenda items, agenda item bill references")
 
         # this grabs a paginated listing of all events within a jurisdiction
-        events_url = base_url+'/events/?jurisdiction_id='+settings.OCD_JURISDICTION_ID
+        events_url = self.base_url+'/events/?jurisdiction_id='+settings.OCD_JURISDICTION_ID
         r = requests.get(events_url)
         page_json = json.loads(r.text)
 
@@ -706,7 +713,7 @@ class Command(BaseCommand):
 
     def grab_event(self, event_ocd_id):
 
-        event_url = base_url+'/'+event_ocd_id
+        event_url = self.base_url+'/'+event_ocd_id
         r = requests.get(event_url)
 
 
