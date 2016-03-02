@@ -109,6 +109,8 @@ class Command(BaseCommand):
         r = requests.get(orgs_url)
         page_json = json.loads(r.text)
 
+        print('Number of organizations to load: {}'.format(page_json['meta']['total_count']))
+
         for i in range(page_json['meta']['max_page']):
 
             r = requests.get(orgs_url+'&page='+str(i+1))
@@ -237,6 +239,8 @@ class Command(BaseCommand):
             r = requests.get(url)
             page_json = json.loads(r.text)
 
+            print('Number of people to load: {}'.format(page_json['meta']['total_count']))
+
             for membership_json in page_json['memberships']:
                 self.grab_person_memberships(membership_json['person']['id'])
 
@@ -284,6 +288,8 @@ class Command(BaseCommand):
         page_json = search_results.json()
         
         leg_session_obj = None
+
+        print('Number of bills to load: {}'.format(page_json['meta']['total_count']))
 
         for page_num in range(page_json['meta']['max_page']):
             
@@ -695,6 +701,8 @@ class Command(BaseCommand):
         events_url = base_url+'/events/?jurisdiction_id='+settings.OCD_JURISDICTION_ID
         r = requests.get(events_url)
         page_json = json.loads(r.text)
+
+        print('Number of events to load: {}'.format(page_json['meta']['total_count']))
 
         for i in range(page_json['meta']['max_page']):
 
