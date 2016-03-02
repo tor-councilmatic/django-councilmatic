@@ -86,8 +86,8 @@ class Command(BaseCommand):
 
             self.grab_organizations(delete=options['delete'])
             self.grab_people(delete=options['delete'])
-            self.grab_bills(delete=options['delete'])
             self.grab_events(delete=options['delete'])
+            self.grab_bills(delete=options['delete'])
 
             print("\ndone!", datetime.datetime.now())
 
