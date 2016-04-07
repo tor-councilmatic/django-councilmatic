@@ -134,7 +134,7 @@ class Person(models.Model):
     @property
     def non_council_memberships(self):
         exclude_kwarg = {'_organization__ocd_id': settings.OCD_CITY_COUNCIL_ID}
-        return self.memberships.exclude(**exclude_kwarg)
+        return self.memberships.exclude(**exclude_kwarg).order_by('role')
 
 
 class Bill(models.Model):
