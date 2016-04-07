@@ -3,8 +3,11 @@ from datetime import datetime
 from django.core.exceptions import ImproperlyConfigured
 import pytz
 from django.conf import settings
+from django.db.models import Q
 import inspect
 import importlib
+import operator
+from functools import reduce
 
 if not (hasattr(settings, 'OCD_CITY_COUNCIL_ID') or hasattr(settings, 'OCD_CITY_COUNCIL_NAME')):
     raise ImproperlyConfigured(
@@ -407,6 +410,13 @@ class Organization(models.Model):
                     .order_by('start_time')\
                     .all()
         return events
+
+    def chairs(self):
+        if hasattr(settings, 'COMMITTEE_CHAIR_TITLES'):
+            or_query_terms = [Q(role=title) for title in settings.COMMITTEE_CHAIR_TITLES]
+            return self.memberships.filter(reduce(operator.or_, or_query_terms))
+        else:
+            return None
 
     @property
     def link_html(self):
