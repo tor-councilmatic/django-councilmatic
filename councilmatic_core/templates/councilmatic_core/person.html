@@ -145,7 +145,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for membership in person.memberships.all %}
+                            {% for membership in person.non_council_memberships %}
                                 <tr>
                                     <td>
                                         {{membership.organization.link_html|safe}}

@@ -131,6 +131,11 @@ class Person(models.Model):
     def primary_sponsorships(self):
         return self.sponsorships.filter(is_primary=True)
 
+    @property
+    def non_council_memberships(self):
+        exclude_kwarg = {'_organization__ocd_id': settings.OCD_CITY_COUNCIL_ID}
+        return self.memberships.exclude(**exclude_kwarg)
+
 
 class Bill(models.Model):
     ocd_id = models.CharField(max_length=100, unique=True)
@@ -411,6 +416,7 @@ class Organization(models.Model):
                     .all()
         return events
 
+    @property
     def chairs(self):
         if hasattr(settings, 'COMMITTEE_CHAIR_TITLES'):
             or_query_terms = [Q(role=title) for title in settings.COMMITTEE_CHAIR_TITLES]
