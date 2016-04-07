@@ -135,7 +135,7 @@
 
             {% if request.GET.view == 'committees' %}
                 <h3>Committees</h3>
-                {% if person.chair_role_memberships or person.member_role_memberships %}
+                {% if person.memberships %}
                 <div class="table-responsive">
                     <table class='table table-responsive'>
                         <thead>
@@ -145,20 +145,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for membership in person.chair_role_memberships %}
+                            {% for membership in person.memberships.all %}
                                 <tr>
                                     <td>
                                         {{membership.organization.link_html|safe}}
                                     </td>
-                                    <td>Chairperson</td>
-                                </tr>
-                            {% endfor %}
-                            {% for membership in person.member_role_memberships %}
-                                <tr>
-                                    <td>
-                                        {{membership.organization.link_html|safe}}
-                                    </td>
-                                    <td>Member</td>
+                                    <td>{{membership.role}}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>

@@ -128,20 +128,6 @@ class Person(models.Model):
     def primary_sponsorships(self):
         return self.sponsorships.filter(is_primary=True)
 
-    @property
-    def chair_role_memberships(self):
-        if hasattr(settings, 'COMMITTEE_CHAIR_TITLE'):
-            return self.memberships.filter(role=settings.COMMITTEE_CHAIR_TITLE)
-        else:
-            return None
-
-    @property
-    def member_role_memberships(self):
-        if hasattr(settings, 'COMMITTEE_MEMBER_TITLE'):
-            return self.memberships.filter(role=settings.COMMITTEE_MEMBER_TITLE)
-        else:
-            return None
-
 
 class Bill(models.Model):
     ocd_id = models.CharField(max_length=100, unique=True)
@@ -421,20 +407,6 @@ class Organization(models.Model):
                     .order_by('start_time')\
                     .all()
         return events
-
-    @property
-    def chairs(self):
-        if hasattr(settings, 'COMMITTEE_CHAIR_TITLE'):
-            return self.memberships.filter(role=settings.COMMITTEE_CHAIR_TITLE)
-        else:
-            return None
-
-    @property
-    def non_chair_members(self):
-        if hasattr(settings, 'COMMITTEE_MEMBER_TITLE'):
-            return self.memberships.filter(role=settings.COMMITTEE_MEMBER_TITLE)
-        else:
-            return None
 
     @property
     def link_html(self):
