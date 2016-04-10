@@ -787,10 +787,7 @@ class Command(BaseCommand):
                 legistar_id = re.findall(
                     'ID=(.*)&GUID', page_json['sources'][0]['url'])[0]
             except IndexError:
-                print("\n\n" + "-" * 60)
-                print("WARNING: MISSING SOURCE %s" % event_ocd_id)
-                print("event has no source")
-                print("-" * 60 + "\n")
+                print("WARNING: No legistar id in source. Using event ocd id: %s" % event_ocd_id)
                 legistar_id = event_ocd_id
 
             event_fields = {
