@@ -465,7 +465,7 @@ class Command(BaseCommand):
         except Bill.DoesNotExist:
 
             try:
-                bill_fields['slug'] = slugify(page_json['identifier'])
+                bill_fields['slug'] = page_json['identifier']
                 obj, created = Bill.objects.get_or_create(**bill_fields)
 
             except IntegrityError:
