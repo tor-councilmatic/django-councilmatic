@@ -784,11 +784,10 @@ class Command(BaseCommand):
             page_json = json.loads(r.text)
 
             try:
-                legistar_id = re.findall(
-                    'ID=(.*)&GUID', page_json['sources'][0]['url'])[0]
+                event_slug = slugify(page_json['name']) + '-' + parse_datetime(page_json['start_time']).astimezone(app_timezone).strftime('%F-%H%M')
             except IndexError:
-                print("WARNING: No legistar id in source. Using event ocd id: %s" % event_ocd_id)
-                legistar_id = event_ocd_id
+                print("WARNING: Could not create event slug. Using event ocd id: %s" % event_ocd_id)
+                event_slug = event_ocd_id
 
             event_fields = {
                 'ocd_id': event_ocd_id,
@@ -843,7 +842,7 @@ class Command(BaseCommand):
             # except if it doesn't exist, we need to make it
             except Event.DoesNotExist:
                 try:
-                    event_fields['slug'] = legistar_id
+                    event_fields['slug'] = event_slug
                     event_obj, created = Event.objects.get_or_create(
                         **event_fields)
 
