@@ -904,21 +904,18 @@ class Command(BaseCommand):
         #     print('      adding agenda item: %s' %agendaitem_obj.order)
 
         if agenda_item_json['related_entities']:
-            related_entity_json = agenda_item_json['related_entities'][0]
-            clean_bill_identifier = re.sub(
-                ' 0', ' ', related_entity_json['entity_name'])
-            related_bill = Bill.objects.filter(
-                identifier=clean_bill_identifier).first()
+            related_bills = [entity for entity in agenda_item_json['related_entities'] if entity['entity_type'] == 'bill']
+            for bill_json in related_bills:
+                bill_identifier = bill_json['entity_name']
+                bill_identifier = re.sub(' 0', ' ', bill_json['entity_name'])
+                related_bill = Bill.objects.get(identifier=bill_identifier)
 
-            if related_bill:
-                obj, created = AgendaItemBill.objects.get_or_create(
-                    agenda_item=agendaitem_obj,
-                    bill=related_bill,
-                    note=related_entity_json['note'],
-                )
-
-            # if created and DEBUG:
-            #     print('         adding related bill: %s' %related_bill.identifier)
+                if related_bill:
+                    obj, created = AgendaItemBill.objects.get_or_create(
+                        agenda_item=agendaitem_obj,
+                        bill=related_bill,
+                        note=bill_json['note'],
+                    )
 
     def load_eventdocument(self, document_json, event):
 
