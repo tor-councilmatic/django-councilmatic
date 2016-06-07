@@ -46,6 +46,12 @@ else:
 
 DEBUG = settings.DEBUG
 
+def get_or_none(model, *args, **kwargs):
+    try:
+        return model.objects.get(*args, **kwargs)
+    except model.DoesNotExist:
+        return None
+
 
 class Command(BaseCommand):
     help = 'loads in data from the open civic data API'
@@ -908,7 +914,7 @@ class Command(BaseCommand):
             for bill_json in related_bills:
                 bill_identifier = bill_json['entity_name']
                 bill_identifier = re.sub(' 0', ' ', bill_json['entity_name'])
-                related_bill = Bill.objects.get(identifier=bill_identifier)
+                related_bill = get_or_none(Bill, identifier=bill_identifier)
 
                 if related_bill:
                     obj, created = AgendaItemBill.objects.get_or_create(
