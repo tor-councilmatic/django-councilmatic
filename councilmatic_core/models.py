@@ -133,7 +133,10 @@ class Person(models.Model):
 
     @property
     def non_council_memberships(self):
-        exclude_kwarg = {'_organization__ocd_id': settings.OCD_CITY_COUNCIL_ID}
+        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
+            exclude_kwarg = {'_organization__ocd_id': settings.OCD_CITY_COUNCIL_ID}
+        else:
+            exclude_kwarg = {'_organization__name': settings.OCD_CITY_COUNCIL_NAME}
         return self.memberships.exclude(**exclude_kwarg).order_by('_organization__name')
 
 
