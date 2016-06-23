@@ -27,10 +27,6 @@ for configuration in ['OCD_JURISDICTION_ID',
         raise ImproperlyConfigured(
             'You must define {0} in settings.py'.format(configuration))
 
-if not (hasattr(settings, 'OCD_CITY_COUNCIL_ID') or hasattr(settings, 'OCD_CITY_COUNCIL_NAME')):
-    raise ImproperlyConfigured(
-        'You must define a OCD_CITY_COUNCIL_ID or OCD_CITY_COUNCIL_NAME in settings.py')
-
 app_timezone = pytz.timezone(settings.TIME_ZONE)
 
 if hasattr(settings, 'OCDAPI_BASE_URL'):
@@ -55,6 +51,7 @@ def get_or_none(model, *args, **kwargs):
 class Command(BaseCommand):
     help = 'loads in data from the open civic data API'
     update_since = None
+    __ocd_city_council_id = None
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -116,10 +113,7 @@ class Command(BaseCommand):
             print("deleted all organizations and posts")
 
         # first grab city council root
-        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
-            self.grab_organization_posts({'id': settings.OCD_CITY_COUNCIL_ID})
-        else:
-            self.grab_organization_posts({'name': settings.OCD_CITY_COUNCIL_NAME})
+        self.grab_organization_posts({'id': self.ocd_city_council_id()})
 
         # this grabs a paginated listing of all organizations within a
         # jurisdiction
@@ -291,10 +285,7 @@ class Command(BaseCommand):
         # get legislative sessions
         self.grab_legislative_sessions()
 
-        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
-            query_params = {'from_organization__id': settings.OCD_CITY_COUNCIL_ID}
-        else:
-            query_params = {'from_organization__name': settings.OCD_CITY_COUNCIL_NAME}
+        query_params = {'from_organization__id': self.ocd_city_council_id()}
 
         # grab all legislative sessions
         if self.update_since is None:
@@ -923,3 +914,22 @@ class Command(BaseCommand):
 
         # if created and DEBUG:
         #     print('      adding document: %s' % doc_obj.note)
+
+    def ocd_city_council_id(self):
+        if self.__ocd_city_council_id:
+            return self.__ocd_city_council_id
+
+        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
+            self.__ocd_city_council_id = settings.OCD_CITY_COUNCIL_ID
+        elif hasattr(settings, 'OCD_CITY_COUNCIL_NAME'):
+            search_url = '{}/organizations/'.format(base_url)
+            query_params = {'name': settings.OCD_CITY_COUNCIL_NAME}
+            search_results = requests.get(search_url, params=query_params).json()['results']
+            if search_results:
+                self.__ocd_city_council_id = search_results[0]['id']
+            else:
+                raise ImproperlyConfigured('You must define an exactly matching OCD_CITY_COUNCIL_NAME in settings.py')
+        else:
+            raise ImproperlyConfigured('You must define a OCD_CITY_COUNCIL_ID or OCD_CITY_COUNCIL_NAME in settings.py')
+
+        return self.__ocd_city_council_id
