@@ -17,7 +17,6 @@ import json
 import pytz
 import re
 import datetime
-import psycopg2
 
 for configuration in ['OCD_JURISDICTION_ID',
                       'HEADSHOT_PATH',
@@ -112,11 +111,8 @@ class Command(BaseCommand):
     def grab_organizations(self, delete=False):
         print("\n\nLOADING ORGANIZATIONS", datetime.datetime.now())
         if delete:
-            with psycopg2.connect(**self.db_conn_kwargs) as conn:
-                with conn.cursor() as curs:
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_organization CASCADE')
-                    curs.execute('TRUNCATE councilmatic_core_post CASCADE')
+            Organization.objects.all().delete()
+            Post.objects.all().delete()
             print("deleted all organizations and posts")
 
         # first grab city council root
@@ -261,11 +257,8 @@ class Command(BaseCommand):
 
         print("\n\nLOADING PEOPLE", datetime.datetime.now())
         if delete:
-            with psycopg2.connect(**self.db_conn_kwargs) as conn:
-                with conn.cursor() as curs:
-                    curs.execute('TRUNCATE councilmatic_core_person CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_membership CASCADE')
+            Person.objects.all().delete()
+            Membership.objects.all().delete()
             print("deleted all people, memberships")
 
         # grab people associated with all existing organizations
@@ -286,21 +279,14 @@ class Command(BaseCommand):
 
         print("\n\nLOADING BILLS", datetime.datetime.now())
         if delete:
-            with psycopg2.connect(**self.db_conn_kwargs) as conn:
-                with conn.cursor() as curs:
-                    curs.execute('TRUNCATE councilmatic_core_bill CASCADE')
-                    curs.execute('TRUNCATE councilmatic_core_action CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_actionrelatedentity CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_legislativesession CASCADE')
-                    curs.execute('TRUNCATE councilmatic_core_document CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_billdocument CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_sponsorship CASCADE')
-            print(
-                "deleted all bills, actions, legislative sessions, documents, sponsorships\n")
+            Bill.objects.all().delete()
+            Action.objects.all().delete()
+            ActionRelatedEntity.objects.all().delete()
+            LegislativeSession.objects.all().delete()
+            Document.objects.all().delete()
+            BillDocument.objects.all().delete()
+            Sponsorship.objects.all().delete()
+            print("deleted all bills, actions, legislative sessions, documents, sponsorships\n")
 
         # get legislative sessions
         self.grab_legislative_sessions()
@@ -754,19 +740,19 @@ class Command(BaseCommand):
 
         print("\n\nLOADING EVENTS", datetime.datetime.now())
         if delete:
-            with psycopg2.connect(**self.db_conn_kwargs) as conn:
-                with conn.cursor() as curs:
-                    curs.execute('TRUNCATE councilmatic_core_event CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_eventparticipant CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_eventdocument CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_eventagendaitem CASCADE')
-                    curs.execute(
-                        'TRUNCATE councilmatic_core_agendaitembill CASCADE')
-            print(
-                "deleted all events, participants, documents, agenda items, agenda item bill references")
+            Bill.objects.all().delete()
+            Action.objects.all().delete()
+            ActionRelatedEntity.objects.all().delete()
+            LegislativeSession.objects.all().delete()
+            Document.objects.all().delete()
+            BillDocument.objects.all().delete()
+            Sponsorship.objects.all().delete()
+            Event.objects.all().delete()
+            EventParticipant.objects.all().delete()
+            EventDocument.objects.all().delete()
+            EventAgendaItem.objects.all().delete()
+            AgendaItemBill.objects.all().delete()
+            print("deleted all events, participants, documents, agenda items, agenda item bill references")
 
         # this grabs a paginated listing of all events within a jurisdiction
         events_url = base_url + '/events/?jurisdiction_id=' + settings.OCD_JURISDICTION_ID
