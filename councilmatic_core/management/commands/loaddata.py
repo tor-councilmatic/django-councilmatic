@@ -648,7 +648,15 @@ class Command(BaseCommand):
                             f.flush()
 
             email = ''
-            for contact_detail in page_json['contact_details']:
+            contact_details = []
+            if page_json['contact_details']:
+                contact_details = page_json['contact_details']
+            elif page_json['memberships']:
+                for membership in page_json['memberships']:
+                    if membership['organization']['id'] == self.ocd_city_council_id():
+                        contact_details = membership['contact_details']
+
+            for contact_detail in contact_details:
                 if contact_detail['type'] == 'email':
                     if contact_detail['value'] != 'mailto:':
                         email = contact_detail['value']
