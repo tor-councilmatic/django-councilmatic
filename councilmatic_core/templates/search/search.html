@@ -60,6 +60,14 @@
             {% endif %}
 
 
+            <!-- Ward -->
+            {% if facets.fields.wards %}
+                {% with facet_name='wards' facet_label='Ward' item_list=facets.fields.wards selected_list=selected_facets.wards %}
+                    {% include 'partials/search_filter.html' %}
+                {% endwith %}
+            {% endif %}
+
+
             <!-- Controlling Body -->
             {% with facet_name='controlling_body' facet_label='Controlling Body' item_list=facets.fields.controlling_body selected_list=selected_facets.controlling_body %}
                 {% include 'partials/search_filter.html' %}
