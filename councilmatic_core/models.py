@@ -61,6 +61,7 @@ class Person(models.Model):
     email = models.CharField(max_length=255, blank=True)
     slug = models.CharField(max_length=255, unique=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+    extras = jsonfield.JSONCharField(max_length=255, blank=True)
 
     def __str__(self):
         return self.name
@@ -383,6 +384,7 @@ class Organization(models.Model):
     source_url = models.CharField(max_length=255, blank=True)
     slug = models.CharField(max_length=255, unique=True)
     updated_at = models.DateTimeField(auto_now=True)
+    extras = jsonfield.JSONCharField(max_length=255, blank=True)
 
     @property
     def parent(self):
@@ -630,6 +632,7 @@ class Event(models.Model):
     source_note = models.CharField(max_length=255, blank=True)
     slug = models.CharField(max_length=255, unique=True)
     updated_at = models.DateTimeField(auto_now=True)
+    extras = jsonfield.JSONCharField(max_length=255, blank=True)
 
     @property
     def event_page_url(self):
