@@ -3,11 +3,8 @@ from datetime import datetime
 from django.core.exceptions import ImproperlyConfigured
 import pytz
 from django.conf import settings
-from django.db.models import Q
 import inspect
 import importlib
-import operator
-from functools import reduce
 import jsonfield
 
 if not (hasattr(settings, 'OCD_CITY_COUNCIL_ID') or hasattr(settings, 'OCD_CITY_COUNCIL_NAME')):
@@ -133,12 +130,18 @@ class Person(models.Model):
         return self.sponsorships.filter(is_primary=True)
 
     @property
-    def non_council_memberships(self):
-        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
-            exclude_kwarg = {'_organization__ocd_id': settings.OCD_CITY_COUNCIL_ID}
+    def chair_role_memberships(self):
+        if hasattr(settings, 'COMMITTEE_CHAIR_TITLE'):
+            return self.memberships.filter(role=settings.COMMITTEE_CHAIR_TITLE)
         else:
-            exclude_kwarg = {'_organization__name': settings.OCD_CITY_COUNCIL_NAME}
-        return self.memberships.exclude(**exclude_kwarg).order_by('_organization__name')
+            return None
+
+    @property
+    def member_role_memberships(self):
+        if hasattr(settings, 'COMMITTEE_MEMBER_TITLE'):
+            return self.memberships.filter(role=settings.COMMITTEE_MEMBER_TITLE)
+        else:
+            return None
 
 
 class Bill(models.Model):
@@ -153,8 +156,6 @@ class Bill(models.Model):
     source_note = models.CharField(max_length=255, blank=True)
     subject = models.CharField(max_length=255, blank=True)
     extras = jsonfield.JSONCharField(max_length=255, blank=True)
-
-
 
     _from_organization = models.ForeignKey('Organization',
                                            related_name='bills',
@@ -401,7 +402,7 @@ class Organization(models.Model):
     def recent_activity(self):
         # setting arbitrary max of 300 b/c otherwise page will take forever to
         # load
-        return self.actions.order_by('-date', '-_bill__identifier', '-order')[:300] if self.actions.all() else []
+        return self.actions.order_by('-date', '-_bill__identifier', '-order')[:300] if self.actions.all() else None
 
     @property
     def recent_events(self):
@@ -425,9 +426,15 @@ class Organization(models.Model):
 
     @property
     def chairs(self):
-        if hasattr(settings, 'COMMITTEE_CHAIR_TITLES'):
-            or_query_terms = [Q(role=title) for title in settings.COMMITTEE_CHAIR_TITLES]
-            return self.memberships.filter(reduce(operator.or_, or_query_terms))
+        if hasattr(settings, 'COMMITTEE_CHAIR_TITLE'):
+            return self.memberships.filter(role=settings.COMMITTEE_CHAIR_TITLE)
+        else:
+            return None
+
+    @property
+    def non_chair_members(self):
+        if hasattr(settings, 'COMMITTEE_MEMBER_TITLE'):
+            return self.memberships.filter(role=settings.COMMITTEE_MEMBER_TITLE)
         else:
             return None
 
