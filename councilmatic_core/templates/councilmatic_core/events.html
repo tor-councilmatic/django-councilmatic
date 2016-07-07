@@ -43,7 +43,7 @@
                     <hr />
 
                     {% for date, event_list in month_events %}
-                        {% include event_day|default:"partials/event_day.html" %}
+                        {% include "partials/event_day.html" %}
                     {% endfor %}
                 {% else %}
                     <h2>No {{ CITY_VOCAB.EVENTS | lower }} to show</h2>
@@ -55,7 +55,7 @@
                     <h2>Upcoming {{ CITY_VOCAB.EVENTS }}</h2>
                     <hr/>
                     {% for date, event_list in upcoming_events %}
-                        {% include event_day|default:"partials/event_day.html" %}
+                        {% include "partials/event_day.html" %}
                     {% endfor %}
                 {% else %}
                     <h2>No Upcoming {{ CITY_VOCAB.EVENTS }}</h2>
