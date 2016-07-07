@@ -17,6 +17,7 @@ import json
 import pytz
 import re
 import datetime
+import psycopg2
 
 for configuration in ['OCD_JURISDICTION_ID',
                       'HEADSHOT_PATH',
@@ -26,6 +27,10 @@ for configuration in ['OCD_JURISDICTION_ID',
     if not hasattr(settings, configuration):
         raise ImproperlyConfigured(
             'You must define {0} in settings.py'.format(configuration))
+
+if not (hasattr(settings, 'OCD_CITY_COUNCIL_ID') or hasattr(settings, 'OCD_CITY_COUNCIL_NAME')):
+    raise ImproperlyConfigured(
+        'You must define a OCD_CITY_COUNCIL_ID or OCD_CITY_COUNCIL_NAME in settings.py')
 
 app_timezone = pytz.timezone(settings.TIME_ZONE)
 
@@ -41,17 +46,10 @@ else:
 
 DEBUG = settings.DEBUG
 
-def get_or_none(model, *args, **kwargs):
-    try:
-        return model.objects.get(*args, **kwargs)
-    except model.DoesNotExist:
-        return None
-
 
 class Command(BaseCommand):
     help = 'loads in data from the open civic data API'
     update_since = None
-    __ocd_city_council_id = None
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -108,12 +106,18 @@ class Command(BaseCommand):
     def grab_organizations(self, delete=False):
         print("\n\nLOADING ORGANIZATIONS", datetime.datetime.now())
         if delete:
-            Organization.objects.all().delete()
-            Post.objects.all().delete()
+            with psycopg2.connect(**self.db_conn_kwargs) as conn:
+                with conn.cursor() as curs:
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_organization CASCADE')
+                    curs.execute('TRUNCATE councilmatic_core_post CASCADE')
             print("deleted all organizations and posts")
 
         # first grab city council root
-        self.grab_organization_posts({'id': self.ocd_city_council_id()})
+        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
+            self.grab_organization_posts({'id': settings.OCD_CITY_COUNCIL_ID})
+        else:
+            self.grab_organization_posts({'name': settings.OCD_CITY_COUNCIL_NAME})
 
         # this grabs a paginated listing of all organizations within a
         # jurisdiction
@@ -152,44 +156,23 @@ class Command(BaseCommand):
         if page_json['sources']:
             source_url = page_json['sources'][0]['url']
 
-        if parent:
-            try:
-                org_obj, created = Organization.objects.get_or_create(
-                    ocd_id=organization_ocd_id,
-                    name=page_json['name'],
-                    classification=page_json['classification'],
-                    source_url=source_url,
-                    slug=slugify(page_json['name']),
-                    _parent=parent,
-                )
-            except IntegrityError:
-                ocd_id_part = organization_ocd_id.rsplit('-', 1)[1]
-                org_obj, created = Organization.objects.get_or_create(
-                    ocd_id=organization_ocd_id,
-                    name=page_json['name'],
-                    classification=page_json['classification'],
-                    source_url=source_url,
-                    slug=slugify(page_json['name']) + ocd_id_part,
-                    _parent=parent,
-                )
-        else:
-            try:
-                org_obj, created = Organization.objects.get_or_create(
-                    ocd_id=organization_ocd_id,
-                    name=page_json['name'],
-                    classification=page_json['classification'],
-                    source_url=source_url,
-                    slug=slugify(page_json['name']),
-                )
-            except IntegrityError:
-                ocd_id_part = organization_ocd_id.rsplit('-', 1)[1]
-                org_obj, created = Organization.objects.get_or_create(
-                    ocd_id=organization_ocd_id,
-                    name=page_json['name'],
-                    classification=page_json['classification'],
-                    source_url=source_url,
-                    slug=slugify(page_json['name']) + ocd_id_part,
-                )
+        org_obj, created = Organization.objects.get_or_create(
+            ocd_id=organization_ocd_id,
+            name=page_json['name']
+        )
+        
+        org_obj.classification = page_json['classification']
+        org_obj.source_url = source_url
+        org_obj._parent = parent
+        org_obj.slug = slugify(page_json['name'])
+
+        try:
+            org_obj.save()
+        except IntegrityError:
+            # Slug must be unique
+            ocd_id_part = organization_ocd_id.rsplit('-', 1)[1]
+            org_obj.slug = slugify(page_json['name']) + ocd_id_part
+            org_obj.save()
 
         # if created and DEBUG:
         #     print('   adding organization: %s' % org_obj.name )
@@ -251,8 +234,11 @@ class Command(BaseCommand):
 
         print("\n\nLOADING PEOPLE", datetime.datetime.now())
         if delete:
-            Person.objects.all().delete()
-            Membership.objects.all().delete()
+            with psycopg2.connect(**self.db_conn_kwargs) as conn:
+                with conn.cursor() as curs:
+                    curs.execute('TRUNCATE councilmatic_core_person CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_membership CASCADE')
             print("deleted all people, memberships")
 
         # grab people associated with all existing organizations
@@ -273,19 +259,29 @@ class Command(BaseCommand):
 
         print("\n\nLOADING BILLS", datetime.datetime.now())
         if delete:
-            Bill.objects.all().delete()
-            Action.objects.all().delete()
-            ActionRelatedEntity.objects.all().delete()
-            LegislativeSession.objects.all().delete()
-            Document.objects.all().delete()
-            BillDocument.objects.all().delete()
-            Sponsorship.objects.all().delete()
-            print("deleted all bills, actions, legislative sessions, documents, sponsorships\n")
+            with psycopg2.connect(**self.db_conn_kwargs) as conn:
+                with conn.cursor() as curs:
+                    curs.execute('TRUNCATE councilmatic_core_bill CASCADE')
+                    curs.execute('TRUNCATE councilmatic_core_action CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_actionrelatedentity CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_legislativesession CASCADE')
+                    curs.execute('TRUNCATE councilmatic_core_document CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_billdocument CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_sponsorship CASCADE')
+            print(
+                "deleted all bills, actions, legislative sessions, documents, sponsorships\n")
 
         # get legislative sessions
         self.grab_legislative_sessions()
 
-        query_params = {'from_organization__id': self.ocd_city_council_id()}
+        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
+            query_params = {'from_organization__id': settings.OCD_CITY_COUNCIL_ID}
+        else:
+            query_params = {'from_organization__name': settings.OCD_CITY_COUNCIL_NAME}
 
         # grab all legislative sessions
         if self.update_since is None:
@@ -448,7 +444,7 @@ class Command(BaseCommand):
         except Bill.DoesNotExist:
 
             try:
-                bill_fields['slug'] = page_json['identifier']
+                bill_fields['slug'] = slugify(page_json['identifier'])
                 obj, created = Bill.objects.get_or_create(**bill_fields)
 
             except IntegrityError:
@@ -629,7 +625,7 @@ class Command(BaseCommand):
 
     def grab_person_memberships(self, person_id):
         # this grabs a person and all their memberships
-
+        
         url = base_url + '/' + person_id + '/'
         r = requests.get(url)
         page_json = json.loads(r.text)
@@ -648,15 +644,7 @@ class Command(BaseCommand):
                             f.flush()
 
             email = ''
-            contact_details = []
-            if page_json['contact_details']:
-                contact_details = page_json['contact_details']
-            elif page_json['memberships']:
-                for membership in page_json['memberships']:
-                    if membership['organization']['id'] == self.ocd_city_council_id():
-                        contact_details = membership['contact_details']
-
-            for contact_detail in contact_details:
+            for contact_detail in page_json['contact_details']:
                 if contact_detail['type'] == 'email':
                     if contact_detail['value'] != 'mailto:':
                         email = contact_detail['value']
@@ -721,16 +709,52 @@ class Command(BaseCommand):
                 start_date = parse_date(membership_json['start_date'])
             except:
                 start_date = None
+            
+            try:
 
-            obj, created = Membership.objects.get_or_create(
-                _organization=organization,
-                _person=person,
-                _post=post,
-                label=membership_json['label'],
-                role=membership_json['role'],
-                start_date=start_date,
-                end_date=end_date
-            )
+                obj = Membership.objects.get(
+                            _organization=organization,
+                            _person=person,
+                            _post=post)
+                created = False
+                
+                obj.label = membership_json['label']
+                obj.role = membership_json['role']
+                obj.start_date = start_date
+                obj.end_date = end_date
+                obj.save()
+            
+            except Membership.DoesNotExist:
+                obj = Membership.objects.create(
+                            _organization=organization,
+                            _person=person,
+                            _post=post,
+                            label=membership_json['label'],
+                            role=membership_json['role'],
+                            start_date=start_date,
+                            end_date=end_date)
+                created = True
+            except Membership.MultipleObjectsReturned:
+                memberships = Membership.objects.filter(
+                                _organization=organization,
+                                _post=post,
+                                _person=person)
+
+                for membership in memberships[1:]:
+                    membership.delete()
+                
+                obj = Membership.objects.get(
+                            _organization=organization,
+                            _person=person,
+                            _post=post)
+                created = False
+                
+                obj.label = membership_json['label']
+                obj.role = membership_json['role']
+                obj.start_date = start_date
+                obj.end_date = end_date
+                obj.save()
+
 
             # if created and DEBUG:
             #     print('      adding membership: %s' % obj.role)
@@ -739,19 +763,19 @@ class Command(BaseCommand):
 
         print("\n\nLOADING EVENTS", datetime.datetime.now())
         if delete:
-            Bill.objects.all().delete()
-            Action.objects.all().delete()
-            ActionRelatedEntity.objects.all().delete()
-            LegislativeSession.objects.all().delete()
-            Document.objects.all().delete()
-            BillDocument.objects.all().delete()
-            Sponsorship.objects.all().delete()
-            Event.objects.all().delete()
-            EventParticipant.objects.all().delete()
-            EventDocument.objects.all().delete()
-            EventAgendaItem.objects.all().delete()
-            AgendaItemBill.objects.all().delete()
-            print("deleted all events, participants, documents, agenda items, agenda item bill references")
+            with psycopg2.connect(**self.db_conn_kwargs) as conn:
+                with conn.cursor() as curs:
+                    curs.execute('TRUNCATE councilmatic_core_event CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_eventparticipant CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_eventdocument CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_eventagendaitem CASCADE')
+                    curs.execute(
+                        'TRUNCATE councilmatic_core_agendaitembill CASCADE')
+            print(
+                "deleted all events, participants, documents, agenda items, agenda item bill references")
 
         # this grabs a paginated listing of all events within a jurisdiction
         events_url = base_url + '/events/?jurisdiction_id=' + settings.OCD_JURISDICTION_ID
@@ -775,10 +799,14 @@ class Command(BaseCommand):
             page_json = json.loads(r.text)
 
             try:
-                event_slug = slugify(page_json['name']) + '-' + parse_datetime(page_json['start_time']).astimezone(app_timezone).strftime('%F-%H%M')
+                legistar_id = re.findall(
+                    'ID=(.*)&GUID', page_json['sources'][0]['url'])[0]
             except IndexError:
-                print("WARNING: Could not create event slug. Using event ocd id: %s" % event_ocd_id)
-                event_slug = event_ocd_id
+                print("\n\n" + "-" * 60)
+                print("WARNING: MISSING SOURCE %s" % event_ocd_id)
+                print("event has no source")
+                print("-" * 60 + "\n")
+                legistar_id = event_ocd_id
 
             event_fields = {
                 'ocd_id': event_ocd_id,
@@ -833,7 +861,7 @@ class Command(BaseCommand):
             # except if it doesn't exist, we need to make it
             except Event.DoesNotExist:
                 try:
-                    event_fields['slug'] = event_slug
+                    event_fields['slug'] = legistar_id
                     event_obj, created = Event.objects.get_or_create(
                         **event_fields)
 
@@ -895,25 +923,43 @@ class Command(BaseCommand):
         #     print('      adding agenda item: %s' %agendaitem_obj.order)
 
         if agenda_item_json['related_entities']:
-            related_bills = [entity for entity in agenda_item_json['related_entities'] if entity['entity_type'] == 'bill']
-            for bill_json in related_bills:
-                bill_identifier = bill_json['entity_name']
-                bill_identifier = re.sub(' 0', ' ', bill_json['entity_name'])
-                related_bill = get_or_none(Bill, identifier=bill_identifier)
+            related_entity_json = agenda_item_json['related_entities'][0]
+            clean_bill_identifier = re.sub(
+                ' 0', ' ', related_entity_json['entity_name'])
+            related_bill = Bill.objects.filter(
+                identifier=clean_bill_identifier).first()
 
-                if related_bill:
-                    obj, created = AgendaItemBill.objects.get_or_create(
-                        agenda_item=agendaitem_obj,
-                        bill=related_bill,
-                        note=bill_json['note'],
-                    )
+            if related_bill:
+                obj, created = AgendaItemBill.objects.get_or_create(
+                    agenda_item=agendaitem_obj,
+                    bill=related_bill,
+                    note=related_entity_json['note'],
+                )
+
+            # if created and DEBUG:
+            #     print('         adding related bill: %s' %related_bill.identifier)
 
     def load_eventdocument(self, document_json, event):
+        
+        try:
+            doc_obj, created = Document.objects.get_or_create(
+                note=document_json['note'],
+                url=document_json['links'][0]['url']
+            )
+        except Document.MultipleObjectsReturned:
+            documents = Document.objects.filter(
+                note=document_json['note'],
+                url=document_json['links'][0]['url']
+            )
 
-        doc_obj, created = Document.objects.get_or_create(
-            note=document_json['note'],
-            url=document_json['links'][0]['url'],
-        )
+            for document in documents[1:]:
+                document.delete()
+            
+            doc_obj = Document.objects.get(
+                note=document_json['note'],
+                url=document_json['links'][0]['url']
+            )
+            created = False
 
         obj, created = EventDocument.objects.get_or_create(
             event=event,
@@ -922,22 +968,3 @@ class Command(BaseCommand):
 
         # if created and DEBUG:
         #     print('      adding document: %s' % doc_obj.note)
-
-    def ocd_city_council_id(self):
-        if self.__ocd_city_council_id:
-            return self.__ocd_city_council_id
-
-        if hasattr(settings, 'OCD_CITY_COUNCIL_ID'):
-            self.__ocd_city_council_id = settings.OCD_CITY_COUNCIL_ID
-        elif hasattr(settings, 'OCD_CITY_COUNCIL_NAME'):
-            search_url = '{}/organizations/'.format(base_url)
-            query_params = {'name': settings.OCD_CITY_COUNCIL_NAME}
-            search_results = requests.get(search_url, params=query_params).json()['results']
-            if search_results:
-                self.__ocd_city_council_id = search_results[0]['id']
-            else:
-                raise ImproperlyConfigured('You must define an exactly matching OCD_CITY_COUNCIL_NAME in settings.py')
-        else:
-            raise ImproperlyConfigured('You must define a OCD_CITY_COUNCIL_ID or OCD_CITY_COUNCIL_NAME in settings.py')
-
-        return self.__ocd_city_council_id
