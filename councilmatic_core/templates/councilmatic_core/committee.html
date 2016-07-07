@@ -100,7 +100,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for membership in committee.memberships.all %}
+                    {% for membership in committee.chairs %}
                         <tr>
                             <td>
                                 <div class="thumbnail-square">
@@ -114,7 +114,25 @@
                                 {{membership.person.current_council_seat}}
                             </td>
                             <td>
-                                {{membership.role}}
+                                Chairperson
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% for membership in committee.non_chair_members %}
+                        <tr>
+                            <td>
+                                <div class="thumbnail-square">
+                                    <img src='{{membership.person.headshot_url}}' alt='{{membership.person.name}}' title='{{membership.person.name}}' class='img-responsive img-thumbnail' />
+                                </div>
+                            </td>
+                            <td>
+                                {{ membership.person.link_html | safe }}
+                            </td>
+                            <td>
+                                {{membership.person.current_council_seat}}
+                            </td>
+                            <td>
+                                Member
                             </td>
                         </tr>
                     {% endfor %}
@@ -131,26 +149,17 @@
     <script src="{% static 'js/dataTables.bootstrap.js' %}"></script>
 
     <script>
-        const ROLE_SORT_ORDER_ASC = ["Member", "Vice Chair", "Vice Chairperson", "Chair", "Chairperson"];
-
-        jQuery.fn.dataTableExt.oSort["role-desc"] = function(a, b) {
-          return ROLE_SORT_ORDER_ASC.indexOf(b) - ROLE_SORT_ORDER_ASC.indexOf(a);
-        };
-        jQuery.fn.dataTableExt.oSort["role-asc"] = function(a, b) {
-          return ROLE_SORT_ORDER_ASC.indexOf(a) - ROLE_SORT_ORDER_ASC.indexOf(b);
-        };
-
         $("#council-members").DataTable({
             "info": false,
             "searching": false,
             "bLengthChange": false,
             "paging": false,
-            "aaSorting": [ [3,'desc'] ],
+            "aaSorting": [ [3,'asc'] ],
             "aoColumns": [
                 { "bSortable": false },
                 null,
                 { "sType": "num-html" },
-                { "sType": "role" }
+                null
             ]
         });
 
