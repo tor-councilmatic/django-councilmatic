@@ -8,6 +8,7 @@ import inspect
 import importlib
 import operator
 from functools import reduce
+import jsonfield
 
 if not (hasattr(settings, 'OCD_CITY_COUNCIL_ID') or hasattr(settings, 'OCD_CITY_COUNCIL_NAME')):
     raise ImproperlyConfigured(
@@ -151,6 +152,9 @@ class Bill(models.Model):
     source_url = models.CharField(max_length=255)
     source_note = models.CharField(max_length=255, blank=True)
     subject = models.CharField(max_length=255, blank=True)
+    extras = jsonfield.JSONCharField(max_length=255, blank=True)
+
+
 
     _from_organization = models.ForeignKey('Organization',
                                            related_name='bills',

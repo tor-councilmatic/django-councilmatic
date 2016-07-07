@@ -23,6 +23,7 @@ setup(
                       'django==1.8.3',
                       'django-haystack==2.4.0',
                       'pysolr==3.3.2',
+                      'jsonfield',
                       'python-dateutil==2.4.2'],
     classifiers=[
         'Environment :: Web Environment',
